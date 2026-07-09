@@ -6,8 +6,8 @@ is a re-implementation of the 'Adafruit_GFX' graphics API. This version is
 substantially faster than the original sample software and provides an integrated
 touchscreen interface.
 
-- [Waveshare 4" Touch LCD Shield for Arduino](https://www.waveshare.com/product/modules/oleds-lcds/arduino-lcd/4inch-tft-touch-shield.htm) (SKU: 13587)
-- [Waveshare 3.5" Touch LCD Shield for Arduino](https://www.waveshare.com/product/modules/oleds-lcds/arduino-lcd/3.5inch-tft-touch-shield.htm) (SKU: 13506)
+- [Waveshare 4" Touch LCD Shield for Arduino](https://www.waveshare.com/4inch-tft-touch-shield.htm) (SKU: 13587)
+- [Waveshare 3.5" Touch LCD Shield for Arduino](https://www.waveshare.com/3.5inch-tft-touch-shield.htm) (SKU: 13506)
 
 The touch screen will also calibrate itself automatically, and provides access to the
 calibration data so that is can be stored (for example, in EEPROM) and then set, so that
