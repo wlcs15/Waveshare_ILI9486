@@ -26,12 +26,19 @@ namespace
     constexpr uint32_t kCalMagic = 0x54534331UL; // 'TSC1'
     constexpr int kCalEepromAddr = 0;
     constexpr unsigned long kCalSaveSettleMs = 1000;
+    constexpr unsigned long kRainbowAfterMs = 10000;
+    constexpr unsigned long kValidMsgHoldMs = 3000;
 
     struct CalRecord
     {
         uint32_t magic;
         TSConfigData cfg;
     };
+
+    bool calLoadedFromEeprom = false;
+    bool calSavedThisSession = false;
+    bool rainbowStarted = false;
+    CalRecord eepromRaw = {};
 
     bool calLooksSane(const TSConfigData &cfg)
     {
@@ -42,13 +49,55 @@ namespace
         return true;
     }
 
+    void logCfg(const char *label, const TSConfigData &cfg)
+    {
+        Serial.print(F("[cal] "));
+        Serial.print(label);
+        Serial.print(F(" xMin="));
+        Serial.print(cfg.xMin);
+        Serial.print(F(" xMax="));
+        Serial.print(cfg.xMax);
+        Serial.print(F(" yMin="));
+        Serial.print(cfg.yMin);
+        Serial.print(F(" yMax="));
+        Serial.println(cfg.yMax);
+    }
+
+    void printCfgLine(const TSConfigData &cfg)
+    {
+        Waveshield.print(F("x "));
+        Waveshield.print(cfg.xMin);
+        Waveshield.print(F(".."));
+        Waveshield.println(cfg.xMax);
+        Waveshield.print(F("y "));
+        Waveshield.print(cfg.yMin);
+        Waveshield.print(F(".."));
+        Waveshield.println(cfg.yMax);
+    }
+
     bool loadCalFromEeprom()
     {
-        CalRecord rec;
-        EEPROM.get(kCalEepromAddr, rec);
-        if (rec.magic != kCalMagic) return false;
-        if (!calLooksSane(rec.cfg)) return false;
-        Waveshield.setTsConfigData(rec.cfg);
+        EEPROM.get(kCalEepromAddr, eepromRaw);
+        Serial.print(F("[cal] EEPROM magic=0x"));
+        Serial.print(eepromRaw.magic, HEX);
+        Serial.print(F(" expected=0x"));
+        Serial.println(kCalMagic, HEX);
+        logCfg("EEPROM record", eepromRaw.cfg);
+
+        if (eepromRaw.magic != kCalMagic)
+        {
+            Serial.println(F("[cal] REJECTED: magic mismatch — no prior session"));
+            return false;
+        }
+        if (!calLooksSane(eepromRaw.cfg))
+        {
+            Serial.println(F("[cal] REJECTED: limits failed sanity check"));
+            return false;
+        }
+
+        Waveshield.setTsConfigData(eepromRaw.cfg);
+        Serial.println(F("[cal] ACCEPTED: prior session calibration is valid and is now active"));
+        logCfg("active after load", Waveshield.getTsConfigData());
         return true;
     }
 
@@ -57,25 +106,89 @@ namespace
         CalRecord rec;
         rec.magic = kCalMagic;
         rec.cfg = Waveshield.getTsConfigData();
-        if (!calLooksSane(rec.cfg)) return;
+        if (!calLooksSane(rec.cfg))
+        {
+            Serial.println(F("[cal] SAVE skipped: live limits not sane"));
+            logCfg("live", rec.cfg);
+            return;
+        }
         EEPROM.put(kCalEepromAddr, rec);
+        calSavedThisSession = true;
+        Serial.println(F("[cal] SAVE wrote live calibration to EEPROM"));
+        logCfg("saved", rec.cfg);
+    }
+
+    void showValidCalibrationScreen()
+    {
+        const TSConfigData &cfg = Waveshield.getTsConfigData();
+
+        Waveshield.setRotation(1);
+        Waveshield.fillScreen(BLACK);
+        Waveshield.setCursor(0, 0);
+        Waveshield.setTextSize(2);
+        Waveshield.setTextColor(GREEN, BLACK);
+
+        if (calLoadedFromEeprom)
+        {
+            Waveshield.println(F("Calibration VALID"));
+            Waveshield.println(F("Prior EEPROM used"));
+            Serial.println(F("[cal] pre-rainbow: showing VALID — prior EEPROM session used"));
+        }
+        else if (calSavedThisSession)
+        {
+            Waveshield.println(F("Calibration VALID"));
+            Waveshield.println(F("Saved this session"));
+            Serial.println(F("[cal] pre-rainbow: showing VALID — saved this session"));
+        }
+        else
+        {
+            Waveshield.setTextColor(YELLOW, BLACK);
+            Waveshield.println(F("Calibration DEFAULT"));
+            Waveshield.println(F("No EEPROM record yet"));
+            Serial.println(F("[cal] pre-rainbow: defaults still in use (not yet saved)"));
+        }
+
+        Waveshield.setTextColor(WHITE, BLACK);
+        Waveshield.println();
+        printCfgLine(cfg);
+        Waveshield.println();
+        Waveshield.setTextSize(1);
+        Waveshield.println(F("Rainbow lines start after this screen"));
+
+        logCfg("pre-rainbow active", cfg);
+        delay(kValidMsgHoldMs);
+        Waveshield.setRotation(0);
+        Waveshield.fillScreen(BLACK);
     }
 }
 
-void setup() 
+void setup()
 {
+    Serial.begin(115200);
+    Serial.println();
+    Serial.println(F("[cal] TouchTest boot"));
+
     SPI.begin();
     Waveshield.begin();
 
+    calLoadedFromEeprom = loadCalFromEeprom();
+
     Waveshield.setRotation(1);
+    Waveshield.fillScreen(BLACK);
+    Waveshield.setCursor(0, 0);
     Waveshield.setTextSize(2);
-    if (loadCalFromEeprom())
+    Waveshield.setTextColor(WHITE, BLACK);
+    if (calLoadedFromEeprom)
     {
-        Waveshield.print("Calibration loaded from EEPROM");
+        Waveshield.println(F("EEPROM cal VALID"));
+        Waveshield.println(F("Using prior session"));
+        printCfgLine(Waveshield.getTsConfigData());
     }
     else
     {
-        Waveshield.print("Run stylus off each edge to calibrate!");
+        Waveshield.println(F("No saved calibration"));
+        Waveshield.println(F("Run stylus off each"));
+        Waveshield.println(F("edge to calibrate!"));
     }
 
     Waveshield.setRotation(0);
@@ -106,12 +219,18 @@ void loop()
         calDirty = false;
     }
 
+    //  Confirm EEPROM/session calibration on screen before the rainbow phase.
+    if (!rainbowStarted && millis() >= kRainbowAfterMs)
+    {
+        showValidCalibrationScreen();
+        rainbowStarted = true;
+        i = 0;
+    }
+
     //  Now that we have a point in screen co-ordinates, draw something there.
     Waveshield.fillCircle(p.x, p.y, 3, BLUE);
 
-    // After ten seconds, start re-drawing the background.  Draw one line each time
-    // through the loop, in a variety of colors.
-    if (millis() / 1000 > 10)
+    if (rainbowStarted)
     {
         uint16_t color = i << 7 ^ i;
         Waveshield.drawFastHLine(0, i, Waveshield.width() - 1, color);
