@@ -9,6 +9,8 @@ touchscreen interface.
 - [Waveshare 4" Touch LCD Shield for Arduino](https://www.waveshare.com/4inch-tft-touch-shield.htm) (SKU: 13587)
 - [Waveshare 3.5" Touch LCD Shield for Arduino](https://www.waveshare.com/3.5inch-tft-touch-shield.htm) (SKU: 13506)
 
+This branch is updated for the **Arduino Uno R3** with the Coowell Waveshare 4inch Arduino Display Module Resistive Touch Screen TFT LCD Shield (480x320 SPI). GraphicsTest and TouchTest were verified on that hardware. Tag `CLS_Arduino_R3_Works!` marks the R3-working tree before EEPROM persistence.
+
 The touch screen will also calibrate itself automatically, and provides access to the
 calibration data so that is can be stored (for example, in EEPROM) and then set, so that
 the touch screen will maintain its calibration across reboots.
@@ -30,8 +32,9 @@ Under examples there is:
  should be very closely aligned.
 
  To calibrate the screen, simply run the stylus off all four edges of the screen a few
- times.  This calibration can be retrieved using `getTsConfigData()`, saved, and restored
- later using `setTsConfigData()`.
+ times.  TouchTest stores a valid calibration in EEPROM after it settles, restores it on
+ boot, and reports on the serial port (115200) and on the TFT whether a prior session was
+ accepted.  Sketches can also use `getTsConfigData()` / `setTsConfigData()` directly.
 
  This library can be installed manually, or it is available from the Arduino IDE Library Manager.
  Search for "Waveshare ILI9486" in the Library Manager.
