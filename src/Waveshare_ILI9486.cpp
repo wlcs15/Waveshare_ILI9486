@@ -293,12 +293,12 @@ namespace
 		ActiveBounds b = {0, (uint8_t)(xStart >> 8), 0, (uint8_t)(xStart & 0xFF), 0, (uint8_t)(xEnd >> 8), 0, (uint8_t)(xEnd & 0xFF)};
 		lcdWriteReg(0x2a);
 		digitalWrite(LCD_DC, HIGH);
-		SPI.writeBytes((byte *)&b, sizeof(b));
+		SPI.transfer((byte *)&b, sizeof(b));
 
 		b = {0, (uint8_t)(yStart >> 8), 0, (uint8_t)(yStart & 0xFF), 0, (uint8_t)(yEnd >> 8), 0, (uint8_t)(yEnd & 0xFF)};
 		lcdWriteReg(0x2b);
 		digitalWrite(LCD_DC, HIGH);
-		SPI.writeBytes((byte *)&b, sizeof(b));
+		SPI.transfer((byte *)&b, sizeof(b));
 	}
 }
 
